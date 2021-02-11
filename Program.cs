@@ -27,9 +27,6 @@ namespace EmlTimeStamper
                 Console.WriteLine(err.ToString());
                 return 1;
             }
-
-            Console.WriteLine("Press any key...");
-            Console.ReadKey();
             return 0;
         }
 
@@ -43,13 +40,29 @@ namespace EmlTimeStamper
             foreach (var fileName in Directory.GetFiles(path, "*.eml"))
             {
                 var emlContents = File.ReadAllText(fileName);
-                var match = Regex.Match(emlContents, @"Date: \w+, (.+).+\+");
-                if (!match.Success) 
-                    throw new Exception($"Cannot find date in file: {fileName}");
-                var date = DateTime.Parse(match.Groups[1].Value);
-                File.SetCreationTime(fileName, date);
-                File.SetLastWriteTime(fileName, date);
-                Console.WriteLine($"Set timestamp of {fileName}");
+                var match = Regex.Match(emlContents, @"Date: \w+, (.+).+\n");
+                if (!match.Success)
+                    Console.WriteLine($"ERROR: Cannot find date in file: {fileName}");
+                else
+                {
+                    var dateString = match.Groups[1].Value;
+                    int posBracket = dateString.IndexOf('(');
+                    if (posBracket != -1)
+                        dateString = dateString.Remove(posBracket);
+                    dateString = dateString.Replace(" UT", "");
+                    var date = DateTime.Parse(dateString);
+
+                    // Set timestamp.
+                    File.SetCreationTime(fileName, date);
+                    File.SetLastWriteTime(fileName, date);
+
+                    // Add date to filename.
+                    var newName = date.ToString("yyyy-MM-dd HH.mm.ss ") + Path.GetFileName(fileName);
+                    var newFullFileName = Path.Combine(Path.GetDirectoryName(fileName), newName);
+                    File.Move(fileName, newFullFileName);
+
+                    Console.WriteLine($"Set timestamp of {fileName}");
+                }
             }
 
             // Recurse through all child directories.
